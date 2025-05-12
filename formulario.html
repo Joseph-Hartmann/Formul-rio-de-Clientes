@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro de Clientes</title>
+  <link rel="stylesheet" href="formulario_style.css" />
+  <style>
+    #mensagem {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #28a745;
+      color: white;
+      padding: 20px 40px;
+      border-radius: 8px;
+      font-size: 1.2em;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 0 10px #666;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    #mensagem.mostrar {
+      display: block;
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="box">
+    <h2>Formulário de Cadastro</h2>
+    <form id="formCliente">
+      <input type="hidden" name="id" id="id" />
+      <div class="inputBox"><input type="text" name="nome" placeholder="Nome" required class="inputUser"></div>
+      <div class="inputBox"><input type="email" name="email" placeholder="Email" required class="inputUser"></div>
+      <div class="inputBox"><input type="text" name="telefone" placeholder="Telefone" required class="inputUser"></div>
+      <div class="inputBox">
+        <select name="genero" required>
+          <option value="">Selecione o Gênero</option>
+          <option value="Masculino">Masculino</option>
+          <option value="Feminino">Feminino</option>
+        </select>
+      </div>
+      <div class="inputBox"><input type="date" name="data_nascimento" required id="data_nascimento"></div>
+      <div class="inputBox"><input type="text" name="cidade" placeholder="Cidade" required class="inputUser"></div>
+      <div class="inputBox"><input type="text" name="estado" placeholder="Estado" required class="inputUser"></div>
+      <div class="inputBox"><input type="text" name="endereco" placeholder="Endereço" required class="inputUser"></div>
+      <button type="submit" id="submit">Cadastrar</button>
+    </form>
+
+    <!-- MENSAGEM CENTRAL -->
+    <div id="mensagem">Cliente cadastrado com sucesso!</div>
+
+    <hr>
+
+    <h2>Clientes Cadastrados</h2>
+    <table id="tabelaClientes">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Email</th>
+          <th>Telefone</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const form = document.getElementById('formCliente');
+    const tabela = document.getElementById('tabelaClientes').querySelector('tbody');
+    const mensagem = document.getElementById('mensagem');
+
+    function mostrarMensagemCentral(texto) {
+      mensagem.textContent = texto;
+      mensagem.classList.add('mostrar');
+
+      setTimeout(() => {
+        mensagem.classList.remove('mostrar');
+      }, 2000);
+    }
+
+    async function carregarClientes() {
+      try {
+        const res = await fetch('http://localhost:3000/clientes');
+        const dados = await res.json();
+        tabela.innerHTML = '';
+        dados.forEach(cliente => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${cliente.nome}</td>
+            <td>${cliente.email}</td>
+            <td>${cliente.telefone}</td>
+            <td>
+              <button onclick="editarCliente(${cliente.id})">Editar</button>
+              <button onclick="excluirCliente(${cliente.id})">Excluir</button>
+            </td>`;
+          tabela.appendChild(tr);
+        });
+      } catch (erro) {
+        console.error('Erro ao carregar clientes:', erro);
+        alert('Erro ao carregar clientes.');
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = form.id.value;
+      const cliente = {
+        nome: form.nome.value,
+        email: form.email.value,
+        telefone: form.telefone.value,
+        genero: form.genero.value,
+        data_nascimento: form.data_nascimento.value,
+        cidade: form.cidade.value,
+        estado: form.estado.value,
+        endereco: form.endereco.value
+      };
+
+      const metodo = id ? 'PUT' : 'POST';
+      const url = id ? `http://localhost:3000/clientes/${id}` : 'http://localhost:3000/clientes';
+
+      try {
+        const res = await fetch(url, {
+          method: metodo,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cliente)
+        });
+
+        const resultado = await res.json();
+
+        if (res.ok) {
+          mostrarMensagemCentral(resultado.message || 'Operação realizada com sucesso.');
+          form.reset();
+          form.id.value = '';
+          carregarClientes();
+        } else {
+          alert(resultado.message || 'Erro ao salvar cliente.');
+        }
+      } catch (erro) {
+        console.error('Erro ao salvar cliente:', erro);
+        alert('Erro ao salvar cliente.');
+      }
+    });
+
+    async function editarCliente(id) {
+      try {
+        const res = await fetch(`http://localhost:3000/clientes/${id}`);
+        const cliente = await res.json();
+        form.id.value = cliente.id;
+        form.nome.value = cliente.nome;
+        form.email.value = cliente.email;
+        form.telefone.value = cliente.telefone;
+        form.genero.value = cliente.genero;
+        form.data_nascimento.value = cliente.data_nascimento.split('T')[0];
+        form.cidade.value = cliente.cidade;
+        form.estado.value = cliente.estado;
+        form.endereco.value = cliente.endereco;
+        alert('Modo de edição ativado.');
+      } catch (erro) {
+        console.error('Erro ao buscar cliente:', erro);
+        alert('Erro ao carregar cliente para edição.');
+      }
+    }
+
+    async function excluirCliente(id) {
+      const confirmacao = confirm('Deseja realmente excluir este cliente?');
+      if (!confirmacao) return;
+
+      try {
+        const resposta = await fetch(`http://localhost:3000/clientes/${id}`, {
+          method: 'DELETE'
+        });
+
+        const data = await resposta.json();
+
+        if (resposta.ok) {
+          mostrarMensagemCentral('Cliente excluído com sucesso.');
+          carregarClientes();
+        } else {
+          alert(data.message || 'Erro ao excluir cliente.');
+        }
+      } catch (erro) {
+        console.error('Erro ao excluir cliente:', erro);
+        alert('Erro ao excluir cliente.');
+      }
+    }
+
+    carregarClientes();
+  </script>
+</body>
+</html>
